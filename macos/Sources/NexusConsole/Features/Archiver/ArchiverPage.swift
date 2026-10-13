@@ -1,15 +1,17 @@
 import NexusCore
 import SwiftUI
 
-/// Claude Chats — master-detail (Notes/Mail pattern): projects on the left,
-/// the selected project's live + archived chats and their actions on the right.
-/// One-shot data: it only changes through our own mutations, which reload it.
+/// Claude Chats — three panes, like Mail: projects on the left, the selected
+/// project's chats in the middle, the open conversation on the right.
+/// Project data only changes through our own mutations, which reload it.
 struct ArchiverPage: View {
     @Environment(AppModel.self) private var model
     @ViewState private var projects: [ClaudeProject]?
     @ViewState private var archived: [ArchivedProject]?
     @ViewState private var loadError: AppError?
     @ViewState private var selection: String?
+    @ViewState private var projectQuery = ""
+    @ViewState private var openChat: ChatRef?
     @ViewState private var settingsOpen = false
 
     private var loaded: Bool { projects != nil && archived != nil }
@@ -29,44 +31,52 @@ struct ArchiverPage: View {
             Divider()
             if let loadError {
                 ErrorPanel(error: loadError) { Task { await load() } }
-                    .padding([.horizontal, .top], 24)
+                    .padding([.horizontal, .top], 16)
             }
-            HStack(alignment: .top, spacing: 16) {
-                projectList(rows, active: active)
-                    .frame(width: 280)
-                    .frame(maxHeight: .infinity)
-                detail(active)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack(alignment: .top, spacing: 12) {
+                projectPane(rows, active: active)
+                    .frame(width: 230)
+                chatsPane(active)
+                    .frame(width: 320)
+                conversationPane
+                    .frame(minWidth: 360, maxWidth: .infinity)
             }
-            .padding(24)
+            .frame(maxHeight: .infinity)
+            .padding(16)
         }
         .task { await load() }
         .sheet(isPresented: $settingsOpen) { ArchiveSettingsSheet() }
     }
 
     private func subtitle(_ rows: [ArchiverRow]) -> String {
-        guard loaded else { return "Claude chat archive" }
+        guard loaded else { return "Read, continue and archive your Claude Code chats" }
         let live = rows.reduce(0) { $0 + ($1.live?.sessions ?? 0) }
         let bytes = (archived ?? []).reduce(UInt64(0)) { $0 + $1.totalBytes }
         return "\(rows.count) projects · \(live) live chats · \(Format.bytes(bytes)) archived"
     }
 
-    // MARK: - Master
+    // MARK: - Projects
 
-    private func projectList(_ rows: [ArchiverRow], active: ArchiverRow?) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Projects").font(.headline).padding(.horizontal, 14).frame(height: 40)
+    private func projectPane(_ rows: [ArchiverRow], active: ArchiverRow?) -> some View {
+        let q = projectQuery.trimmingCharacters(in: .whitespaces)
+        let matches = q.isEmpty ? rows : rows.filter {
+            $0.displayName.localizedCaseInsensitiveContains(q) || $0.subtitle.localizedCaseInsensitiveContains(q)
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            PaneSearchField(prompt: "Search projects", text: $projectQuery)
+                .padding(10)
             Divider()
             if !loaded {
-                List { ForEach(0..<6, id: \.self) { _ in ArchiverProjectRow(row: nil) } }
+                List { ForEach(0..<8, id: \.self) { _ in ArchiverProjectRow(row: nil) } }
                     .listStyle(.plain).scrollContentBackground(.hidden).redacted(reason: .placeholder)
                     .disabled(true)
-            } else if rows.isEmpty {
-                Text("Nothing in ~/.claude/projects.").font(.callout).foregroundStyle(.secondary).padding(14)
+            } else if matches.isEmpty {
+                Text(rows.isEmpty ? "Nothing in ~/.claude/projects." : "No projects match “\(q)”.")
+                    .font(.callout).foregroundStyle(.secondary).padding(14)
                 Spacer(minLength: 0)
             } else {
-                List(selection: Binding(get: { active?.id }, set: { if let id = $0 { selection = id } })) {
-                    ForEach(rows) { ArchiverProjectRow(row: $0).tag($0.id) }
+                List(selection: Binding(get: { active?.id }, set: select)) {
+                    ForEach(matches) { ArchiverProjectRow(row: $0).tag($0.id) }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -75,25 +85,47 @@ struct ArchiverPage: View {
         .card(padding: 0)
     }
 
-    // MARK: - Detail
+    private func select(_ id: String?) {
+        guard let id, id != selection else { return }
+        selection = id
+        openChat = nil
+    }
+
+    // MARK: - Chats
 
     @ViewBuilder
-    private func detail(_ active: ArchiverRow?) -> some View {
+    private func chatsPane(_ active: ArchiverRow?) -> some View {
         if !loaded {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 Text("Project name").font(.headline)
                 Text("/path/to/the/project/folder").font(.caption)
                 ForEach(0..<6, id: \.self) { _ in Text("A chat title placeholder line").font(.callout) }
                 Spacer(minLength: 0)
             }
             .redacted(reason: .placeholder)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .card()
         } else if let active {
-            ArchiverDetail(row: active, reload: load).id(active.id)
+            ChatListPane(row: active, openID: openChat?.id, onOpen: { openChat = $0 }, reload: load)
+                .id(active.id)
         } else {
             EmptyState(symbol: "folder", title: "No Claude projects",
                        message: "Nothing found in ~/.claude/projects on this machine.")
+                .frame(maxHeight: .infinity)
+                .card(padding: 0)
+        }
+    }
+
+    // MARK: - Conversation
+
+    @ViewBuilder
+    private var conversationPane: some View {
+        if let openChat {
+            ChatConversationView(ref: openChat).id(openChat.id)
+        } else {
+            EmptyState(symbol: "bubble.left.and.bubble.right", title: "Select a chat",
+                       message: "Read any chat here, then continue it in Claude Code.")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .card(padding: 0)
         }
     }

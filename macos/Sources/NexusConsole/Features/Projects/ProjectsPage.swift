@@ -54,23 +54,24 @@ struct ProjectsPage: View {
 
     /// "42 projects · 3 running", or "5 of 42 shown" while narrowed.
     private func subtitle(shown: Int, facts: ProjectFacts) -> String {
-        guard store.loadedAt != nil else { return "Looking for projects in your home folder…" }
+        guard store.loadedAt != nil || !store.projects.isEmpty else { return "Looking for projects in your home folder…" }
         let total = store.projects.count
+        let updating = store.loadedAt == nil ? " · updating…" : ""
         if !store.query.trimmingCharacters(in: .whitespaces).isEmpty || store.filter != .all {
             var s = "\(shown) of \(total) shown"
             if store.filter == .unsaved, store.gitPending > 0 { s += " · checking git status…" }
-            return s
+            return s + updating
         }
         var parts = ["\(total) \(total == 1 ? "project" : "projects")"]
         let running = store.projects.filter { facts.running.contains($0.root) }.count
         if running > 0 { parts.append("\(running) running") }
-        return parts.joined(separator: " · ")
+        return parts.joined(separator: " · ") + updating
     }
 
     @ViewBuilder
     private func content(_ shown: [ProjectInfo], facts: ProjectFacts) -> some View {
         let q = store.query.trimmingCharacters(in: .whitespaces)
-        if store.loadedAt == nil {
+        if store.loadedAt == nil && store.projects.isEmpty {
             ProjectsSkeleton().padding(24)
         } else if store.projects.isEmpty {
             EmptyState(symbol: "square.stack.3d.down.right", title: "No projects found",

@@ -89,6 +89,7 @@ struct MainView: View {
         case .projects: ProjectsPage()
         case .services: ServicesPage()
         case .packages: PackagesPage()
+        case .tools: ToolsPage()
         case .sessions: SessionsPage()
         case .ports: PortsPage()
         case .doctor: DoctorPage()

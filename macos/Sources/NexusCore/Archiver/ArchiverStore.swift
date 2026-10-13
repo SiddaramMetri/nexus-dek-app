@@ -9,8 +9,9 @@ import Foundation
 ///   skipped, never overwritten.
 /// - Fail-safe: settings.json not the shape we expect → error out, never guess.
 /// - Every mutation is appended to `<archive-root>/journal.jsonl`.
-/// - Titles come from VSCode's session cache when it has one, else the jsonl
-///   head; the INDEX merge preserves good titles after the cache forgets them.
+/// - Titles: the user's rename, then VSCode's session cache, then the INDEX
+///   row (which preserves good titles after the cache forgets them), then the
+///   jsonl's own title lines / first prompt — never blank.
 struct ArchiverStore {
     var projectsDir: URL
     var archiveRoot: URL
@@ -60,9 +61,11 @@ struct ArchiverStore {
         // VSCode's own chat titles beat our first-user-message fallback.
         let cache = cacheTitles(dirName)
         return ArchiverFS.jsonlFiles(dir).map { f in
-            ArchivedChat(file: f.lastPathComponent, epoch: ArchiverFS.mtimeEpoch(f) ?? 0,
-                         title: cache[f.deletingPathExtension().lastPathComponent]
-                             ?? ArchiverText.sessionTitle(ArchiverFS.readHead(f)) ?? "—")
+            let epoch = ArchiverFS.mtimeEpoch(f) ?? 0
+            return ArchivedChat(file: f.lastPathComponent, epoch: epoch,
+                                title: ArchiverText.chatTitle(f, cached: cache[f.deletingPathExtension().lastPathComponent],
+                                                              epoch: epoch),
+                                bytes: ArchiverFS.size(f) ?? 0)
         }.sorted { $0.epoch > $1.epoch }
     }
 
@@ -76,10 +79,11 @@ struct ArchiverStore {
             let titles = ArchiverText.parseIndex(read(path.appendingPathComponent("INDEX.md")))
             var total: UInt64 = 0
             let chats = ArchiverFS.jsonlFiles(path).map { f -> ArchivedChat in
-                total += ArchiverFS.size(f) ?? 0
+                let bytes = ArchiverFS.size(f) ?? 0, epoch = ArchiverFS.mtimeEpoch(f) ?? 0
+                total += bytes
                 let name = f.lastPathComponent
-                return ArchivedChat(file: name, epoch: ArchiverFS.mtimeEpoch(f) ?? 0,
-                                    title: titles[name] ?? ArchiverText.sessionTitle(ArchiverFS.readHead(f)) ?? "—")
+                return ArchivedChat(file: name, epoch: epoch,
+                                    title: ArchiverText.chatTitle(f, cached: titles[name], epoch: epoch), bytes: bytes)
             }.sorted { $0.epoch > $1.epoch }
             if chats.isEmpty { continue }
             out.append(ArchivedProject(folder: folder, dirName: byFolder[folder], totalBytes: total, chats: chats))
@@ -191,10 +195,10 @@ struct ArchiverStore {
         let existing = ArchiverText.parseIndex(read(indexURL))
         let cache = cacheTitles(projectDirName)
         let rows: [ArchiverText.IndexRow] = ArchiverFS.jsonlFiles(dir).map { f in
-            let name = f.lastPathComponent
-            let title = cache[f.deletingPathExtension().lastPathComponent] ?? existing[name]
-                ?? ArchiverText.sessionTitle(ArchiverFS.readHead(f)) ?? "—"
-            return (ArchiverFS.mtimeEpoch(f) ?? 0, title, name)
+            let name = f.lastPathComponent, epoch = ArchiverFS.mtimeEpoch(f) ?? 0
+            let title = ArchiverText.chatTitle(f, cached: cache[f.deletingPathExtension().lastPathComponent] ?? existing[name],
+                                               epoch: epoch)
+            return (epoch, title, name)
         }.sorted { $0.epoch > $1.epoch }
         let md = ArchiverText.renderIndex(folder: folder, projectDirName: projectDirName, rows: rows)
         do { try Data(md.utf8).write(to: indexURL) } catch { throw AppError.io(error.localizedDescription) }

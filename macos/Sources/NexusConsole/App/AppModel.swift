@@ -4,7 +4,7 @@ import Observation
 import UserNotifications
 
 enum Tab: String, CaseIterable, Identifiable {
-    case projects, services, packages, sessions, ports, doctor, cleanup, docker, archiver, settings
+    case projects, services, packages, tools, sessions, ports, doctor, cleanup, docker, archiver, settings
     var id: String { rawValue }
 
     var label: String {
@@ -12,6 +12,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .projects: "Projects"
         case .services: "Services"
         case .packages: "Packages"
+        case .tools: "Tools"
         case .sessions: "Sessions"
         case .ports: "Ports"
         case .doctor: "Doctor"
@@ -27,6 +28,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .projects: "square.stack.3d.down.right"
         case .services: "square.grid.2x2"
         case .packages: "shippingbox"
+        case .tools: "wrench.and.screwdriver"
         case .sessions: "clock"
         case .ports: "network"
         case .doctor: "stethoscope"
@@ -44,7 +46,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .ports: .ports
         case .doctor, .cleanup, .docker: .doctor
         case .archiver: .claude
-        case .projects, .settings: nil
+        case .projects, .tools, .settings: nil
         }
     }
 }

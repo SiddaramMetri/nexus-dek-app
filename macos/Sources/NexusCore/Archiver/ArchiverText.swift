@@ -6,32 +6,42 @@ import Foundation
 enum ArchiverText {
     // MARK: - Titles
 
-    /// Best-effort chat title from the head of a session .jsonl: a `summary`
-    /// line wins, else the first real user message, truncated.
+    /// Best-effort chat title from the head of a session .jsonl: a title the
+    /// user set wins, then Claude's own (`ai-title`), then a `summary` line,
+    /// then the first real prompt (wrappers, commands, meta and tool results
+    /// skipped), trimmed to one line.
     static func sessionTitle(_ head: String) -> String? {
-        var userMsg: String?
-        for line in lines(head).prefix(40) {
-            guard let v = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any] else { continue }
-            switch v["type"] as? String {
-            case "summary":
-                if let s = v["summary"] as? String { return truncate(s, 60) }
-            case "user" where userMsg == nil:
-                let content = (v["message"] as? [String: Any])?["content"]
-                var text: String?
-                if let s = content as? String {
-                    text = s
-                } else if let a = content as? [Any] {
-                    text = a.lazy.compactMap { ($0 as? [String: Any])?["text"] as? String }.first
-                }
-                if let t = text?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty, !t.hasPrefix("<") {
-                    userMsg = truncate(t, 60)
-                }
-            default:
-                break
-            }
-        }
-        return userMsg
+        let t = titles(head: head, tail: "")
+        return t.custom ?? t.derived
     }
+
+    /// Title candidates from a transcript's head and tail (Claude Code appends
+    /// `ai-title` / `custom-title` lines as the chat goes on, so the latest
+    /// ones sit near the end). `custom` is the user's own rename.
+    static func titles(head: String, tail: String) -> (custom: String?, derived: String?) {
+        var custom: String?, ai: String?, summary: String?, prompt: String?, lastPrompt: String?
+        // The tail's first line is usually cut mid-way; parsing just fails on it.
+        for line in lines(head) + lines(tail) {
+            guard let p = ChatLineParser.parse(String(line)) else { continue }
+            custom = p.customTitle ?? custom
+            ai = p.aiTitle ?? ai
+            summary = summary ?? p.summary
+            prompt = prompt ?? p.prompt
+            lastPrompt = p.lastPrompt ?? lastPrompt
+        }
+        return (custom.map { truncate($0, 60) }, (ai ?? summary).map { truncate($0, 60) } ?? prompt ?? lastPrompt)
+    }
+
+    /// Title for a transcript on disk: the user's rename, then `cached` (VSCode's
+    /// label or a saved INDEX row), then the derived title — never blank.
+    static func chatTitle(_ url: URL, cached: String?, epoch: UInt64) -> String {
+        let t = titles(head: ArchiverFS.readHead(url), tail: ArchiverFS.readTail(url))
+        // A blank or "—" label (older INDEX rows, empty VSCode labels) is no title.
+        let label = cached.map { truncate($0, 60) }.flatMap { $0.isEmpty || $0 == "—" ? nil : $0 }
+        return t.custom ?? label ?? t.derived ?? untitled(epoch)
+    }
+
+    static func untitled(_ epoch: UInt64) -> String { "Untitled chat · \(formatDate(epoch))" }
 
     /// Rust `str::lines`: split on `\n`, drop a trailing `\r`, no final empty line.
     static func lines(_ s: String) -> [Substring] {
@@ -70,7 +80,10 @@ enum ArchiverText {
             // "| date | title | file |" splits into ["", date, title, file, ""]
             let cells = line.split(separator: "|", omittingEmptySubsequences: false)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
-            if cells.count == 5, cells[3].hasSuffix(".jsonl") { out[cells[3]] = cells[2] }
+            // "—" is what older builds wrote for an unknown title: treat it as missing.
+            if cells.count == 5, cells[3].hasSuffix(".jsonl"), !cells[2].isEmpty, cells[2] != "—" {
+                out[cells[3]] = cells[2]
+            }
         }
         return out
     }

@@ -32,6 +32,7 @@ struct ProjectOverviewCard: View {
             chips(group, running: running).padding(.top, 10)
             servers(group).padding(.top, 12)
             if let removable, removable > 0 { disk(removable).padding(.top, 10) }
+            StoppedJobsRow(projectRoot: project.root).padding(.top, 6)
             Spacer(minLength: 12)
             Divider()
             ProjectActionBar(group: group, running: running, stopped: stopped, stopping: stopping,

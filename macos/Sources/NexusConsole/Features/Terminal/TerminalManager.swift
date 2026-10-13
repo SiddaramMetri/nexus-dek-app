@@ -98,7 +98,8 @@ final class TerminalManager {
             return
         }
         let home = Paths.home.path
-        guard dir.hasPrefix(home + "/"), FileManager.default.fileExists(atPath: dir),
+        let dir = dir.hasSuffix("/") && dir.count > 1 ? String(dir.dropLast()) : dir
+        guard dir == home || dir.hasPrefix(home + "/"), FileManager.default.fileExists(atPath: dir),
               sessions.count < Self.maxSessions else { return }
         sessions.removeAll { $0.formula == key && exited.contains($0.id) }
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"

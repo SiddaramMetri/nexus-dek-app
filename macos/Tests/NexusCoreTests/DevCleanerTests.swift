@@ -399,3 +399,22 @@ private struct Decline: Confirmer {
         #expect(JunkKind.rustTarget.rebuildCost.contains("min"))
     }
 }
+
+@Suite struct SavedScanTests {
+    @Test func restoredScanDropsGoneFoldersAndKeepsSizes() async throws {
+        let fm = FileManager.default
+        let home = fm.temporaryDirectory.appendingPathComponent("saved-\(UUID().uuidString)", isDirectory: true)
+        let p = home.appendingPathComponent("code/app", isDirectory: true)
+        try fm.createDirectory(at: p.appendingPathComponent("node_modules/x"), withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: p.appendingPathComponent("package.json"))
+        let now = UInt64(Date().timeIntervalSince1970)
+        var item = try #require(DevCleaner.item(for: p.appendingPathComponent("node_modules"), now: now, home: home))
+        item.bytes = 1234
+        let gone = JunkItem(path: home.appendingPathComponent("gone/node_modules").path, kind: .nodeModules,
+                            groupRoot: home.path, lastUsedEpoch: 0, category: .dead, locked: false, bytes: 99)
+        let data = try JSONEncoder().encode(DevCleaner.SavedScan(items: [item, gone], scannedAt: 1))
+        let decoded = try JSONDecoder().decode(DevCleaner.SavedScan.self, from: data)
+        #expect(decoded.items.count == 2)
+        #expect(decoded.items[0].bytes == 1234)
+    }
+}

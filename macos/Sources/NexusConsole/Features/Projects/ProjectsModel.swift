@@ -16,7 +16,21 @@ final class ProjectsModel {
     private(set) var loadedAt: Date?
     private(set) var loading = false
     var query = ""
-    var filter: ProjectFilter = .all
+    /// Opens on Running; falls back to All once, if nothing is running.
+    var filter: ProjectFilter = .running {
+        didSet { if !applyingDefault { userPickedFilter = true } }
+    }
+    private var userPickedFilter = false
+    private var applyingDefault = false
+
+    /// Called after each load: if the user hasn't chosen a filter and nothing
+    /// runs, show everything instead of an empty Running view.
+    func settleDefaultFilter(runningCount: Int) {
+        guard !userPickedFilter else { return }
+        applyingDefault = true
+        filter = runningCount > 0 ? .running : .all
+        applyingDefault = false
+    }
     var sort: ProjectSort = .recent
     private(set) var pinned: Set<String>
     /// Git status per root for the current refresh (nil value = not a repo, or git failed).
@@ -61,6 +75,12 @@ final class ProjectsModel {
         guard !loading else { return }
         loading = true
         defer { loading = false }
+        // Instant first paint from the saved index; the full walk below
+        // then adds new projects and drops removed ones.
+        if projects.isEmpty {
+            let cached = ProjectDiscovery.cachedRoots()
+            if !cached.isEmpty { projects = await ProjectDiscovery.infos(roots: cached) }
+        }
         // Port owners join the list even when they aren't git repositories.
         if PortsStore.shared.snapshot == nil { await PortsStore.shared.reload() }
         let owners = Array(ProjectList.portsByRoot(PortsStore.shared.snapshot?.ports ?? []).keys)
@@ -70,6 +90,7 @@ final class ProjectsModel {
         git = [:]
         gitQueue = []
         gitInFlight = []
+        settleDefaultFilter(runningCount: ProjectList.portsByRoot(PortsStore.shared.snapshot?.ports ?? []).count)
         if filter == .unsaved { requestAllGit() }
     }
 

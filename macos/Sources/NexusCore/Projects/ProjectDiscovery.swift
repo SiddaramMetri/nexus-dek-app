@@ -32,6 +32,24 @@ public struct ProjectInfo: Identifiable, Equatable, Hashable, Sendable {
 public enum ProjectDiscovery {
     static let maxDepth = 6
 
+    /// Project folders found last time — read at launch so the list appears
+    /// instantly, before the (slower) home-folder walk refreshes it.
+    static let index = JSONStore<[String]>(file: "index.json", key: "projectRoots")
+
+    public static func cachedRoots() -> [String] {
+        (index.load() ?? []).filter { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    /// Facts for known roots, no `find` — the fast path at launch.
+    public static func infos(roots: [String]) async -> [ProjectInfo] {
+        await withTaskGroup(of: ProjectInfo.self) { group in
+            for root in roots { group.addTask { info(root: root) } }
+            var out: [ProjectInfo] = []
+            for await i in group { out.append(i) }
+            return out.sorted { $0.root < $1.root }
+        }
+    }
+
     /// `find` over $HOME: prunes Library / Trash / media folders (Music,
     /// Pictures and Movies each pop a privacy prompt), prints and prunes every
     /// `.git` directory, prunes node_modules and other hidden folders.
@@ -66,12 +84,8 @@ public enum ProjectDiscovery {
         var all = roots(gitDirs: gitDirs, home: home)
         var seen = Set(all)
         for r in extraRoots where FileManager.default.fileExists(atPath: r) && seen.insert(r).inserted { all.append(r) }
-        return await withTaskGroup(of: ProjectInfo.self) { group in
-            for root in all { group.addTask { info(root: root) } }
-            var infos: [ProjectInfo] = []
-            for await i in group { infos.append(i) }
-            return infos.sorted { $0.root < $1.root }
-        }
+        index.save(all)
+        return await infos(roots: all)
     }
 
     /// One project's facts from its files (no subprocesses).

@@ -32,11 +32,14 @@ public struct ArchivedChat: Equatable, Hashable, Sendable, Identifiable {
     public var file: String
     public var epoch: UInt64
     public var title: String
+    /// Transcript size on disk.
+    public var bytes: UInt64
 
-    public init(file: String, epoch: UInt64, title: String) {
+    public init(file: String, epoch: UInt64, title: String, bytes: UInt64 = 0) {
         self.file = file
         self.epoch = epoch
         self.title = title
+        self.bytes = bytes
     }
 }
 

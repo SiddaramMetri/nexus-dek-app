@@ -12,9 +12,14 @@ APP="$OUT/Nexus Console.app"
 SCRATCH="$ROOT/.build-release"
 
 echo "▸ Compiling (release, -Osize)…"
+set +e
 swift build --build-system native -c release --scratch-path "$SCRATCH" \
   -Xswiftc -Osize -Xswiftc -gnone \
-  -Xlinker -dead_strip -Xlinker -dead_strip_dylibs 2>&1 | grep -vE "^warning: '--build-system native'" || true
+  -Xlinker -dead_strip -Xlinker -dead_strip_dylibs 2>&1 | grep -vE "^warning: '--build-system native'"
+STATUS=${PIPESTATUS[0]}
+set -e
+# Never package a stale binary from an earlier build.
+[ "$STATUS" -eq 0 ] || { echo "✘ compile failed — app not updated"; exit 1; }
 BIN="$(swift build --build-system native -c release --scratch-path "$SCRATCH" --show-bin-path 2>/dev/null)/NexusConsole"
 [ -x "$BIN" ] || { echo "build failed"; exit 1; }
 

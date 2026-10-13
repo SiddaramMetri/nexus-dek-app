@@ -4,7 +4,7 @@ import Foundation
 /// matched by folder name AND a marker that proves what it is (a manifest next
 /// to it, a gitignore entry, a venv config inside), so an ordinary project
 /// folder that happens to be called `build` or `target` is never offered.
-public enum JunkKind: String, CaseIterable, Sendable, Identifiable {
+public enum JunkKind: String, CaseIterable, Codable, Sendable, Identifiable {
     case nodeModules
     case jsFrameworkCache
     case jsBuildOutput

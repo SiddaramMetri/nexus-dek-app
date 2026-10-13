@@ -1,15 +1,11 @@
 import NexusCore
 import SwiftUI
 
-/// A per-row action, surfaced in the row's "…" menu.
-struct ChatAction {
-    let label: String
-    let symbol: String
-    /// Permanent deletes render as destructive.
-    var destructive = false
-    var disabled = false
-    var help = ""
-    let act: (String) -> Void
+/// Age filter for the chat list — "Archive…" archives exactly what's shown.
+enum ChatAgeFilter: Int, CaseIterable, Identifiable {
+    case all = 0, d7 = 7, d14 = 14, d30 = 30, d90 = 90
+    var id: Int { rawValue }
+    var label: String { self == .all ? "Any age" : "Older than \(rawValue) days" }
 }
 
 /// Round macOS-style selection checkbox (Mail/Photos), with a real button and
@@ -34,69 +30,83 @@ struct ChatCheckbox: View {
     }
 }
 
-/// Checkbox-selectable chat list with light pagination — shared by the Live and
-/// Archived sections so both read identically. Scrolls inside its own region.
-struct ArchiverChatList: View {
-    /// Rows render in pages of this size; "Show more" appends the next page.
-    static let page = 50
-
-    let chats: [ArchivedChat]
-    @Binding var selected: Set<String>
-    let actions: [ChatAction]
-    @ViewState private var visible = ArchiverChatList.page
+/// A pane-local search field (the shared `SearchField` also grabs ⌘F focus,
+/// which only the chat list should do).
+struct PaneSearchField: View {
+    let prompt: String
+    @Binding var text: String
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(Array(chats.prefix(visible))) { chat in
-                    row(chat)
-                    Divider().padding(.leading, 40)
-                }
-                if chats.count > visible {
-                    let rest = chats.count - visible
-                    Button("Show \(min(Self.page, rest)) more (\(rest) remaining)") { visible += Self.page }
-                        .buttonStyle(.borderless)
-                        .padding(12)
-                }
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField(prompt, text: $text).textFieldStyle(.plain)
+            if !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
             }
         }
+        .font(.callout)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
     }
+}
 
-    private func row(_ chat: ArchivedChat) -> some View {
-        let isOn = selected.contains(chat.file)
+/// One chat in the middle pane. The checkbox selects for bulk actions; the
+/// rest of the row opens the chat. Message count loads lazily (whole-file
+/// scans are cached and run one at a time).
+struct ChatListRow: View {
+    let chat: ArchivedChat
+    let location: ChatLocation
+    let isChecked: Bool
+    let isOpen: Bool
+    let toggle: () -> Void
+    let open: () -> Void
+
+    @ViewState private var stats: ChatStats?
+
+    var body: some View {
         let date = Date(timeIntervalSince1970: TimeInterval(chat.epoch))
-        return HStack(spacing: 12) {
-            ChatCheckbox(isOn: isOn, label: "Select \(chat.title)") { toggle(chat.file) }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(chat.title).lineLimit(1).truncationMode(.tail)
-                Text(Format.relative(date)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    .help(Format.time(date))
+        HStack(alignment: .top, spacing: 10) {
+            ChatCheckbox(isOn: isChecked, label: "Select \(chat.title)", action: toggle)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(chat.title).font(.body.weight(isOpen ? .semibold : .regular)).lineLimit(2)
+                    .truncationMode(.tail)
+                HStack(spacing: 4) {
+                    Text(detail(date))
+                    Spacer(minLength: 4)
+                    if chat.bytes > 0 { Text(Format.bytes(chat.bytes)) }
+                }
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .help(Format.time(date))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture { toggle(chat.file) }
-            Menu {
-                ForEach(actions, id: \.label) { a in
-                    Button(role: a.destructive ? .destructive : nil) { a.act(chat.file) } label: {
-                        Label(a.label, systemImage: a.symbol)
-                    }
-                    .disabled(a.disabled)
-                    .help(a.help)
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .accessibilityLabel("Chat actions")
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(isOpen ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction(.default, open)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(isOn ? Color.accentColor.opacity(0.08) : Color.clear)
+        .background(background, in: RoundedRectangle(cornerRadius: 6))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: open) // the checkbox button keeps its own taps
+        .task(id: "\(chat.file)@\(chat.epoch)") {
+            stats = try? await ClaudeChats.stats(location, file: chat.file)
+        }
     }
 
-    private func toggle(_ file: String) {
-        if selected.contains(file) { selected.remove(file) } else { selected.insert(file) }
+    private func detail(_ date: Date) -> String {
+        let ago = Format.relative(date)
+        guard let stats else { return ago }
+        return "\(stats.messages) message\(stats.messages == 1 ? "" : "s") · \(ago)"
+    }
+
+    private var background: Color {
+        if isOpen { return Color.accentColor.opacity(0.16) }
+        return isChecked ? Color.accentColor.opacity(0.07) : .clear
     }
 }

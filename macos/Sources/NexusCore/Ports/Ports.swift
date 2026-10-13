@@ -19,6 +19,8 @@ public struct PortInfo: Identifiable, Equatable, Hashable, Sendable {
     public var owner: PortOwner = .other
     /// "Next.js", "Django", … from the command line.
     public var framework: String?
+    /// Set when launchd (KeepAlive) restarts this process if it's killed.
+    public var launchdJob: LaunchdJob? = nil
 
     public var id: String { "\(pid)-\(port)" }
 
@@ -72,8 +74,15 @@ public enum Ports {
         let cwds = Self.cwds(await cwdOut)
         var exePaths: [Int32: String] = [:]
         for pid in Set(rows.map(\.pid)) { exePaths[pid] = PortClassifier.executablePath(pid: pid) }
-        let ports = classify(enrich(rows, samples: procs.mapValues(\.sample)), procs: procs, cwds: cwds,
+        var ports = classify(enrich(rows, samples: procs.mapValues(\.sample)), procs: procs, cwds: cwds,
                              exePaths: exePaths, home: home)
+        // Processes whose parent is launchd may be kept alive by a job — one
+        // `launchctl list` to find out, only when there are such processes.
+        let orphans = Set(ports.filter { $0.ppid == 1 }.map(\.pid))
+        if !orphans.isEmpty {
+            let jobs = await LaunchdJobs.jobs(forPids: orphans, home: home)
+            for i in ports.indices { ports[i].launchdJob = jobs[ports[i].pid] }
+        }
         var branches: [String: String] = [:]
         var declared: [String: [DeclaredServer]] = [:]
         for case let .project(root) in Set(ports.map(\.owner)) {

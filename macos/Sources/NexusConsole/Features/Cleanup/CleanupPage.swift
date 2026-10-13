@@ -21,7 +21,9 @@ struct CleanupPage: View {
             content
         }
         // `--args -NexusAutoScan YES` starts a scan on open (used for screenshots).
-        .onAppear { if !c.scanned, UserDefaults.standard.bool(forKey: "NexusAutoScan") { c.scan() } }
+        .onAppear {
+            if !c.scanned, UserDefaults.standard.bool(forKey: "NexusAutoScan") { c.scan() } else { c.restoreIfNeeded() }
+        }
     }
 
     private var subtitle: String {
@@ -30,6 +32,7 @@ struct CleanupPage: View {
         }
         var s = "\(c.items.count) folders in \(c.projectCount) projects · \(Format.bytes(c.totalBytes))"
         s += c.scanning ? " so far" : " · \(Format.bytes(c.reclaimableBytes)) in dead or stale projects"
+        if !c.scanning, let at = c.scannedAt { s += " · scanned \(Format.relative(at))" }
         return s
     }
 

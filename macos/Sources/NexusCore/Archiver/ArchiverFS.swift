@@ -45,6 +45,16 @@ enum ArchiverFS {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Last 128 KB, lossily decoded — where Claude Code appends title lines.
+    static func readTail(_ url: URL, bytes: UInt64 = 128 * 1024) -> String {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return "" }
+        defer { try? h.close() }
+        let size = (try? h.seekToEnd()) ?? 0
+        guard size > UInt64(64 * 1024) else { return "" } // the head read already covered it
+        try? h.seek(toOffset: size > bytes ? size - bytes : 0)
+        return String(decoding: (try? h.readToEnd()) ?? Data(), as: UTF8.self)
+    }
+
     static func dirSize(_ dir: URL) -> UInt64 {
         (entries(dir) ?? []).reduce(0) { sum, p in sum + (isDir(p) ? dirSize(p) : size(p) ?? 0) }
     }

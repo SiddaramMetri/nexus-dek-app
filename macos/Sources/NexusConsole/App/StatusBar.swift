@@ -110,6 +110,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
     @objc private func stopServer(_ sender: NSMenuItem) {
         guard let (port, name, project) = sender.representedObject as? (PortInfo, String, String) else { return }
         let model = model
+        if port.launchdJob?.isUserAgent == true {
+            LaunchdPrompt.stop(port, name: name, projectRoot: nil, model: model) { _ in }
+            return
+        }
         Task {
             let ok = await model.confirmer.confirm(
                 title: "Stop \(name) in \(project)?",

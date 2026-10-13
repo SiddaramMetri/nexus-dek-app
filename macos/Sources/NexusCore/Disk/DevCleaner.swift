@@ -1,8 +1,8 @@
 import Foundation
 
 /// One removable dev folder found under the home folder.
-public struct JunkItem: Identifiable, Equatable, Sendable {
-    public enum Category: String, Sendable, CaseIterable {
+public struct JunkItem: Identifiable, Equatable, Codable, Sendable {
+    public enum Category: String, Codable, Sendable, CaseIterable {
         /// In Downloads, or the project is untouched for over 6 months.
         case dead
         /// Project untouched 1–6 months.
@@ -43,12 +43,39 @@ public struct JunkItem: Identifiable, Equatable, Sendable {
 public enum DevCleaner {
     /// Projects touched this recently are locked: no delete is offered.
     public static let lockDays: UInt64 = 7
-    static let sizeConcurrency = 4
+    static let sizeConcurrency = 8
 
     public enum Event: Sendable, Equatable {
         /// `find` finished: every folder, unmeasured, classified.
         case found([JunkItem])
         case sized(id: String, bytes: UInt64)
+    }
+
+    // MARK: - Saved scan
+
+    /// The last finished scan, so the tab opens with results instead of empty.
+    public struct SavedScan: Codable, Sendable {
+        public var items: [JunkItem]
+        public var scannedAt: Double
+    }
+
+    static let saved = JSONStore<SavedScan>(file: "cleanup.json", key: "lastScan")
+
+    public static func save(_ items: [JunkItem]) {
+        saved.save(SavedScan(items: items, scannedAt: Date().timeIntervalSince1970))
+    }
+
+    /// The saved scan, re-checked: folders that are gone are dropped, and age,
+    /// locks and safety notes are recomputed now (only sizes come from the save).
+    public static func restore(home: URL = Paths.home) async -> (items: [JunkItem], scannedAt: Date)? {
+        guard let scan = saved.load(), !scan.items.isEmpty else { return nil }
+        let now = DoctorSupport.nowEpoch
+        let items: [JunkItem] = scan.items.compactMap { old in
+            guard var fresh = item(for: URL(fileURLWithPath: old.path, isDirectory: true), now: now, home: home) else { return nil }
+            fresh.bytes = old.bytes
+            return fresh
+        }
+        return (items, Date(timeIntervalSince1970: scan.scannedAt))
     }
 
     // MARK: - Scan

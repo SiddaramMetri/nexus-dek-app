@@ -31,6 +31,9 @@ final class CleanupModel {
 
     var items: [JunkItem] = []
     var scanned = false
+    /// When the shown results were measured (a restored scan shows its age).
+    var scannedAt: Date?
+    private var restoreAttempted = false
     var scanning = false
     var foundDone = false
     var filter: Filter = .all
@@ -101,24 +104,6 @@ final class CleanupModel {
         let find: PipelineStep.State = !scanned ? .pending : foundDone ? .done : .running
         let measuring = foundDone && measuredCount < n && scanning
         let measure: PipelineStep.State = !foundDone ? .pending : measuring ? .running : .done
-        let reviewing = foundDone && !scanning
-        let review: PipelineStep.State = !reviewing ? .pending : selectedItems.isEmpty ? .running : .done
-        let trashState: PipelineStep.State
-        let trashDetail: String
-        switch trash {
-        case .idle: (trashState, trashDetail) = (.pending, reviewing ? "Waiting" : "—")
-        case .running: (trashState, trashDetail) = (.running, "Moving…")
-        case let .done(k): (trashState, trashDetail) = (k > 0 ? .done : .skipped, k > 0 ? "Moved \(k)" : "Skipped")
-        case .failed: (trashState, trashDetail) = (.failed, "Failed")
-        }
-        let verifyState: PipelineStep.State
-        let verifyDetail: String
-        switch verify {
-        case .idle: (verifyState, verifyDetail) = (trash == .done(removed: 0) ? .skipped : .pending,
-                                                  trash == .done(removed: 0) ? "Skipped" : "—")
-        case let .verified(freed): (verifyState, verifyDetail) = (.done, "Verified · \(Format.bytes(freed))")
-        case let .failed(k): (verifyState, verifyDetail) = (.failed, "\(k) still there")
-        }
         return [
             PipelineStep(title: "Find", symbol: "magnifyingglass", state: find,
                          detail: !scanned ? "Ready" : foundDone ? "\(n) folders" : "Searching…"),
@@ -126,10 +111,6 @@ final class CleanupModel {
                          detail: foundDone ? "\(projectCount) projects" : !scanned ? "—" : "Checking…"),
             PipelineStep(title: "Measure", symbol: "internaldrive", state: measure,
                          detail: !foundDone ? "—" : measuring ? "\(measuredCount)/\(n)" : Format.bytes(totalBytes)),
-            PipelineStep(title: "Review", symbol: "hand.tap", state: review,
-                         detail: !reviewing ? "—" : selectedItems.isEmpty ? "Select folders" : "\(selectedItems.count) selected"),
-            PipelineStep(title: "Trash", symbol: "trash", state: trashState, detail: trashDetail),
-            PipelineStep(title: "Verify", symbol: "checkmark.shield", state: verifyState, detail: verifyDetail),
         ]
     }
 
@@ -211,6 +192,7 @@ final class CleanupModel {
         scanning = true
         scanned = true
         foundDone = false
+        scannedAt = nil
         scanTask = Task {
             for await event in DevCleaner.scan() {
                 switch event {
@@ -222,6 +204,24 @@ final class CleanupModel {
                 }
             }
             scanning = false
+            // A complete scan is saved so the next launch opens with results.
+            if !Task.isCancelled, items.allSatisfy({ $0.bytes != nil }) {
+                scannedAt = Date()
+                DevCleaner.save(items)
+            }
+        }
+    }
+
+    /// Opens with the last saved scan (re-checked) instead of an empty tab.
+    func restoreIfNeeded() {
+        guard !restoreAttempted, !scanned else { return }
+        restoreAttempted = true
+        Task {
+            guard let saved = await DevCleaner.restore(), !scanned else { return }
+            items = saved.items
+            scannedAt = saved.scannedAt
+            scanned = true
+            foundDone = true
         }
     }
 

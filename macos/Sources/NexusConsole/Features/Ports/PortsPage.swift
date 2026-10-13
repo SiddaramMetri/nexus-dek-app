@@ -88,7 +88,7 @@ struct PortsPage: View {
                 }
             } else {
                 ScrollView {
-                    PortSectionsView(sections: sections, searching: !q.isEmpty) { killTarget = $0 }
+                    PortsListView(sections: sections, searching: !q.isEmpty) { killTarget = $0 }
                         .padding(24)
                 }
             }
@@ -98,57 +98,6 @@ struct PortsPage: View {
     }
 }
 
-/// The four sections. While searching every section with a match is shown
-/// expanded, so typing `3000` always reveals what's on 3000.
-private struct PortSectionsView: View {
-    let sections: PortSections
-    let searching: Bool
-    let onStop: (PortInfo) -> Void
-
-    private var store: PortsStore { .shared }
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 12) {
-            if !sections.projects.isEmpty || !searching {
-                header(.projects, count: sections.projects.count)
-                if isOpen(.projects) {
-                    if sections.projects.isEmpty {
-                        Text("No dev servers are running in your projects.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 18)
-                    }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 480), spacing: 16, alignment: .top)], spacing: 16) {
-                        ForEach(sections.projects) { ProjectCard(group: $0, onStop: onStop) }
-                    }
-                }
-            }
-            if !sections.apps.isEmpty {
-                header(.apps, count: sections.apps.count).padding(.top, 8)
-                if isOpen(.apps) { AppPortsList(groups: sections.apps) }
-            }
-            if !sections.other.isEmpty {
-                header(.other, count: sections.other.count).padding(.top, 8)
-                if isOpen(.other) { OtherPortsList(groups: sections.other, onStop: onStop) }
-            }
-            if !sections.system.isEmpty {
-                header(.system, count: sections.system.count, trailing: "Protected").padding(.top, 8)
-                if isOpen(.system) { SystemPortsList(groups: sections.system) }
-            }
-        }
-    }
-
-    private func isOpen(_ s: PortsStore.Section) -> Bool { searching || store.expanded.contains(s) }
-
-    private func header(_ s: PortsStore.Section, count: Int, trailing: String? = nil) -> some View {
-        PortSectionHeader(title: s.title, count: count, expanded: isOpen(s), trailing: trailing) {
-            withAnimation(.snappy(duration: 0.2)) { store.toggle(s) }
-        }
-        .disabled(searching)
-    }
-}
-
-/// First-load placeholder shaped like a project card (no spinner, no jank).
 private struct PortsSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
