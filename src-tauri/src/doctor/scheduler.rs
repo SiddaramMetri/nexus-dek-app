@@ -112,7 +112,7 @@ fn notify(app: &tauri::AppHandle, body: &str) {
     let _ = app
         .notification()
         .builder()
-        .title("Nexus Doctor")
+        .title("Kavach Doctor")
         .body(body)
         .show();
 }

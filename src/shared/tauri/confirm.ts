@@ -12,7 +12,7 @@ export interface ConfirmBulkParams {
 }
 
 /** Native macOS confirm (window-modal sheet on the main window) for bulk
- * actions — resolves true if confirmed, false if cancelled. Bound to the Nexus
+ * actions — resolves true if confirmed, false if cancelled. Bound to the Kavach
  * window, so it never floats over another app; the caller gates on the bool. */
 export const confirmBulk = ({
   title,

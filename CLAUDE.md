@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Nexus Console** — a macOS desktop/menu-bar app: Tauri 2 (Rust) + React 19 + Vite + Tailwind v4.
-It manages local Homebrew services/packages/ports, an embedded PTY terminal, and **Nexus Doctor**
+**Kavach Console** — a macOS desktop/menu-bar app: Tauri 2 (Rust) + React 19 + Vite + Tailwind v4.
+It manages local Homebrew services/packages/ports, an embedded PTY terminal, and **Kavach Doctor**
 (read-only machine-health probes, the Claude chat Archiver, VSCode cleanup). macOS 11+, single
 window (`main`), no backend, no network API.
 
 > **Ignore stack-specific `.claude/rules/*`.** Those files are auto-loaded but describe a
-> _different_ project (Nexus ERP — NestJS, Prisma, MUI, `server/` + `nexus-fe/`, none of which
+> _different_ project (Kavach ERP — NestJS, Prisma, MUI, `server/` + `kavach-fe/`, none of which
 > exist here). Only their generic parts (YAGNI/reuse, code size, quality gates) transfer. Same for
 > the `.claude/agents` and skills aimed at that ERP. `PRODUCT.md` is this repo's real design brief.
 

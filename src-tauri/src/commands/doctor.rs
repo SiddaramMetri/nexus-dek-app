@@ -152,7 +152,7 @@ pub async fn doctor_export(content: String) -> AppResult<String> {
             .ok_or_else(|| AppError::NotFound("HOME not set".into()))?
             .join("Desktop");
         let path = desktop.join(format!(
-            "nexus-doctor-report-{}.md",
+            "kavach-doctor-report-{}.md",
             crate::doctor::claude::now_epoch()
         ));
         std::fs::write(&path, content).map_err(|e| AppError::Io(e.to_string()))?;

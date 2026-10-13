@@ -9,7 +9,7 @@ const apply = (mode: 'light' | 'dark') => {
   root.dataset.theme = mode;
   // Mirror for the pre-paint script in index.html (kills next-launch flash).
   try {
-    localStorage.setItem('nexus-theme', mode);
+    localStorage.setItem('kavach-theme', mode);
   } catch {
     /* storage unavailable — flash-guard only, nothing to do */
   }

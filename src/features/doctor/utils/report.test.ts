@@ -23,7 +23,7 @@ test('splits attention vs healthy and sorts red first', () => {
     ],
     'Jul 17 at 07:45 PM',
   );
-  expect(md).toContain('# Nexus Doctor report — Jul 17 at 07:45 PM');
+  expect(md).toContain('# Kavach Doctor report — Jul 17 at 07:45 PM');
   expect(md).toContain('## Needs attention (2)');
   expect(md).toContain('## Healthy (1)');
   expect(md.indexOf('bad')).toBeLessThan(md.indexOf('meh'));

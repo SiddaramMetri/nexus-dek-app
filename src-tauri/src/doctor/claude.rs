@@ -910,7 +910,7 @@ mod tests {
     fn encodes_every_non_alphanumeric_as_dash() {
         assert_eq!(encode_segment("VSS Batches"), "VSS-Batches");
         assert_eq!(encode_segment("Draw.io"), "Draw-io");
-        assert_eq!(encode_segment("nexus_fe"), "nexus-fe");
+        assert_eq!(encode_segment("kavach_fe"), "kavach-fe");
         assert_eq!(encode_segment("9-June"), "9-June");
     }
 

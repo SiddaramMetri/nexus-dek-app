@@ -18,7 +18,7 @@ export class RootErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('Nexus Console crashed:', error, info);
+    console.error('Kavach Console crashed:', error, info);
     // A crash before Bootstrap's reveal must never leave the window invisible.
     void showMainWindow();
   }

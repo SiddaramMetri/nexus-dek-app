@@ -1,4 +1,4 @@
-// Nexus Doctor — probe engine (docs/doctor/PLAN.md Phase 0).
+// Kavach Doctor — probe engine (docs/doctor/PLAN.md Phase 0).
 // A probe is read-only and must never wake a daemon (the watchman lesson,
 // SESSION-CONTEXT §2). Mutations only ever happen via explicit fix commands.
 

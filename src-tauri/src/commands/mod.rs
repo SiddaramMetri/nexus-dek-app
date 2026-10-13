@@ -44,7 +44,7 @@ pub(crate) fn confirm_action(
             "Cancel".into(),
         ));
     // Parent to the main window → a window-modal SHEET: native macOS, but bound
-    // to the Nexus window so it never floats over another app / Space.
+    // to the Kavach window so it never floats over another app / Space.
     if let Some(win) = app.get_webview_window("main") {
         dialog = dialog.parent(&win);
     }
@@ -82,7 +82,7 @@ pub async fn trust_tap(
             &format!(
                 "Homebrew won't load anything from “{tap}” until you trust it once, \
                  so installs, versions and package lists fail while it's untrusted.\n\n\
-                 Nexus will run:  brew trust --tap {tap}\n\n\
+                 Kavach will run:  brew trust --tap {tap}\n\n\
                  Only trust taps you added yourself. No administrator password is needed.",
             ),
             "Trust tap",

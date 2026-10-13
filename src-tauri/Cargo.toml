@@ -1,13 +1,13 @@
 [package]
-name = "nexus-console"
+name = "kavach-console"
 version = "0.1.0"
-description = "Nexus Console — a lightweight GUI for local Homebrew services"
+description = "Kavach Console — a lightweight GUI for local Homebrew services"
 authors = ["xDAnkit <xDAnkitjain@gmail.com>"]
 license = "MIT"
 edition = "2021"
 
 [lib]
-name = "nexus_console_lib"
+name = "kavach_console_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

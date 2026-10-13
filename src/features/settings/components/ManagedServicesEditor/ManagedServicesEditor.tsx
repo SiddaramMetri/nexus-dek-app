@@ -19,7 +19,7 @@ export const ManagedServicesEditor = () => {
         <div>
           <h2 className="text-base font-semibold text-fg">Managed services</h2>
           <p className="text-xs text-fg-muted">
-            Services Nexus keeps in view, even when they&apos;re stopped.
+            Services Kavach keeps in view, even when they&apos;re stopped.
           </p>
         </div>
         <Button size="sm" onClick={() => setAddOpen(true)}>

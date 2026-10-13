@@ -1,4 +1,4 @@
-/* Nexus Console design tokens (Tailwind v4, CSS-first).
+/* Kavach Console design tokens (Tailwind v4, CSS-first).
  * Semantic tokens flip via CSS-var overrides under [data-theme='dark'] —
  * so `bg-canvas` / `text-fg` adapt with no scattered dark: utilities.
  * Never hardcode a hex in a component; read these tokens. */

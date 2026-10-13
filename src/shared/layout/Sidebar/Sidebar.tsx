@@ -25,7 +25,7 @@ export const Sidebar = () => {
           <Boxes className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-fg">Nexus Console</p>
+          <p className="text-sm font-semibold text-fg">Kavach Console</p>
           <p className="text-xs text-fg-muted">Service Manager</p>
         </div>
       </div>

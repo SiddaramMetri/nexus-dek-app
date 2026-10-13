@@ -1,5 +1,5 @@
 #!/bin/sh
-# Nexus Console — one-command setup for a fresh Mac.
+# Kavach Console — one-command setup for a fresh Mac.
 #
 #   sh scripts/setup.sh        install whatever is missing (asks before each step)
 #   sh scripts/setup.sh --yes  don't ask, just install
@@ -39,7 +39,7 @@ ask() {
   case "$reply" in n | N | no | NO) return 1 ;; *) return 0 ;; esac
 }
 
-echo "Nexus Console — setup"
+echo "Kavach Console — setup"
 
 # 1. Xcode Command Line Tools — the compiler/linker every Rust build needs.
 if xcode-select -p >/dev/null 2>&1; then

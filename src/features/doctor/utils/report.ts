@@ -9,7 +9,7 @@ export function buildReport(findings: DoctorFinding[], dateLabel: string): strin
   const attention = sorted.filter((f) => f.severity !== 'green');
   const healthy = sorted.filter((f) => f.severity === 'green');
   return [
-    `# Nexus Doctor report — ${dateLabel}`,
+    `# Kavach Doctor report — ${dateLabel}`,
     '',
     `## Needs attention (${attention.length})`,
     ...(attention.length

@@ -1,4 +1,4 @@
-// Nexus Console — Tauri core.
+// Kavach Console — Tauri core.
 
 mod brew;
 mod commands;
@@ -121,7 +121,7 @@ pub fn run() {
             tray::set_tray_services
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Nexus Console")
+        .expect("error while building Kavach Console")
         .run(|app, event| {
             // On real quit: kill PTYs + stop explicitly-unlinked running services.
             if let tauri::RunEvent::ExitRequested { .. } = event {

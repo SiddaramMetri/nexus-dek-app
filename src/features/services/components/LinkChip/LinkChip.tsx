@@ -31,7 +31,7 @@ export const LinkChip = ({ linkState }: { linkState: LinkState }) => {
         >
           {linked
             ? 'Kept running in the background (survives quit).'
-            : 'Runs temporarily; stops when you quit Nexus.'}
+            : 'Runs temporarily; stops when you quit Kavach.'}
           <Tooltip.Arrow className="fill-paper" />
         </Tooltip.Content>
       </Tooltip.Portal>

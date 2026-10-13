@@ -7,7 +7,7 @@
 ## Users & Purpose
 
 - One developer on a Mac, managing their local dev environment: Homebrew services, ports,
-  work sessions — and machine health via **Nexus Doctor** (system probes, the Claude chat
+  work sessions — and machine health via **Kavach Doctor** (system probes, the Claude chat
   Archiver, VSCode cleanup, disk hygiene).
 - Context: the app lives in the menu-bar tray all day. It gets opened for seconds — check,
   act, dismiss. Zero patience for friction, zero tolerance for jank.

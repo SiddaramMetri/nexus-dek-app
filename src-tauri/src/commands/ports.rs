@@ -63,7 +63,7 @@ fn collect_ports(listening_only: bool) -> AppResult<Vec<PortDto>> {
 }
 
 /// SIGTERM (or SIGKILL when `force`). `sudo` escalates via the native admin prompt.
-/// Guards: never signal pid < 2 (kernel/launchd) or Nexus itself.
+/// Guards: never signal pid < 2 (kernel/launchd) or Kavach itself.
 // async so the sudo path's `osascript … with administrator privileges` (a
 // blocking macOS auth dialog) doesn't stall the main-thread event loop.
 #[tauri::command]
@@ -72,7 +72,7 @@ pub async fn kill_process(pid: u32, force: bool, sudo: bool) -> AppResult<()> {
         return Err(AppError::Forbidden("refusing to signal pid < 2".into()));
     }
     if pid == std::process::id() {
-        return Err(AppError::Forbidden("refusing to kill Nexus Console".into()));
+        return Err(AppError::Forbidden("refusing to kill Kavach Console".into()));
     }
     let sig_name = if force { "KILL" } else { "TERM" };
 

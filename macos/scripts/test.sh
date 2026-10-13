@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run the NexusCore test suite.
+# Run the KavachCore test suite.
 # Uses the native build system with explicit Swift Testing paths: under the
 # Command Line Tools (no full Xcode) the default build system can't find the
 # Testing macro plugin once a package has dependencies or per-target settings.

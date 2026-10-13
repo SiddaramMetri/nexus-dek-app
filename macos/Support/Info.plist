@@ -5,17 +5,21 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nexus Console</string>
+	<string>__APP_NAME__</string>
 	<key>CFBundleExecutable</key>
-	<string>NexusConsole</string>
+	<string>__EXECUTABLE__</string>
+	<key>AppShortName</key>
+	<string>__APP_SHORT_NAME__</string>
+	<key>AppTagline</key>
+	<string>__APP_TAGLINE__</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.vss.nexusconsole</string>
+	<string>__BUNDLE_ID__</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Nexus Console</string>
+	<string>__APP_NAME__</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,7 +31,7 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Nexus Console asks Finder to empty the Trash when you choose Empty Trash in Dev cleanup.</string>
+	<string>__APP_NAME__ asks Finder to empty the Trash when you choose Empty Trash in Dev cleanup.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

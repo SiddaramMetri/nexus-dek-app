@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Nexus Console",
+  "productName": "Kavach Console",
   "version": "0.1.0",
-  "identifier": "com.vss.nexusconsole",
+  "identifier": "com.vss.kavachconsole",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Nexus Console",
+        "title": "Kavach Console",
         "width": 1280,
         "height": 840,
         "minWidth": 1000,

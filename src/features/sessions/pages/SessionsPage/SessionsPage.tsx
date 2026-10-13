@@ -43,7 +43,7 @@ export const SessionsPage = () => {
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto p-6">
         <p className="text-xs text-fg-subtle">
-          Run history is recorded while Nexus Console is open. The current run&apos;s uptime is read
+          Run history is recorded while Kavach Console is open. The current run&apos;s uptime is read
           from the live process.
           {ordered.length > 1 && ' Drag a card to reorder.'}
         </p>

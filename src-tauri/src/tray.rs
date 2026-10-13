@@ -37,7 +37,7 @@ fn build_menu(
     let sep_top = PredefinedMenuItem::separator(app)?;
     let sep_bottom = PredefinedMenuItem::separator(app)?;
     let open = MenuItem::with_id(app, "open", "Open Dashboard", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Nexus Console", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Kavach Console", true, None::<&str>)?;
 
     let rows = services
         .iter()

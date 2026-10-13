@@ -345,7 +345,7 @@ mod tests {
             })
             .unwrap();
         let mut cmd = CommandBuilder::new("echo");
-        cmd.arg("nexus-pty-ok");
+        cmd.arg("kavach-pty-ok");
         let mut child = pair.slave.spawn_command(cmd).unwrap();
         drop(pair.slave);
         let mut reader = pair.master.try_clone_reader().unwrap();
@@ -353,6 +353,6 @@ mod tests {
         let n = reader.read(&mut buf).unwrap();
         let out = String::from_utf8_lossy(&buf[..n]).into_owned();
         let _ = child.wait();
-        assert!(out.contains("nexus-pty-ok"), "got: {out:?}");
+        assert!(out.contains("kavach-pty-ok"), "got: {out:?}");
     }
 }

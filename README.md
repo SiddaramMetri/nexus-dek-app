@@ -1,4 +1,4 @@
-# Nexus Console
+# Kavach Console
 
 Your Mac's local dev setup, in one window.
 
@@ -16,7 +16,7 @@ Your Mac's local dev setup, in one window.
 
 > The app has no network code of its own. It only talks to your own machine.
 
-Nexus Console is a small macOS app that manages your [Homebrew](https://brew.sh) services and
+Kavach Console is a small macOS app that manages your [Homebrew](https://brew.sh) services and
 packages, shows you which ports are busy, checks the health of your machine, and gives you a
 terminal. No more remembering ten `brew` commands. Click a button instead.
 
@@ -80,7 +80,7 @@ On a fresh Mac, three commands. The setup script checks for Xcode Command Line T
 Node 22.12 or newer, and Rust, then installs whatever is missing. It asks before each step.
 
 ```bash
-git clone <this-repo> && cd NexusConsole
+git clone <this-repo> && cd KavachConsole
 sh scripts/setup.sh     # add --yes to skip the prompts
 npm start               # runs the app
 ```
@@ -163,12 +163,12 @@ on that error. From a terminal it is `brew trust --tap <user/repo>`.
 **App shows "Homebrew not detected".** It looks in `/opt/homebrew`, then `/usr/local`, then
 `$HOMEBREW_PREFIX`. Install brew and relaunch. There is nothing to configure.
 
-**"Nexus Console can't be opened" or "damaged" when opening a build on another Mac.**
+**"Kavach Console can't be opened" or "damaged" when opening a build on another Mac.**
 The app is not signed with a paid Apple Developer certificate, so Gatekeeper quarantines a copied
 build. Right-click the app, choose **Open**, then **Open** again. Or:
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/Nexus Console.app"
+xattr -dr com.apple.quarantine "/Applications/Kavach Console.app"
 ```
 
 Building on your own machine never hits this.

@@ -19,7 +19,7 @@ export const ConnectServiceModal = ({ open, onOpenChange }: ConnectServiceModalP
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const search = useSearchFormulae(debouncedQuery);
   // Everything brew already runs as a service on this Mac — so a service removed
-  // from the list (or installed outside Nexus) can always be added back without
+  // from the list (or installed outside Kavach) can always be added back without
   // knowing its formula name.
   const services = useServices();
 
