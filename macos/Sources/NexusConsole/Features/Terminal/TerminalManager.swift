@@ -15,7 +15,8 @@ final class TerminalSession: Identifiable {
     let view: LocalProcessTerminalView
     private let delegate: ProcessDelegate
 
-    init(formula: String, title: String, kind: TerminalKind, program: String, args: [String], onExit: @escaping () -> Void) {
+    init(formula: String, title: String, kind: TerminalKind, program: String, args: [String],
+         cwd: String? = nil, input: String? = nil, onExit: @escaping () -> Void) {
         self.formula = formula
         self.title = title
         self.kind = kind
@@ -29,7 +30,10 @@ final class TerminalSession: Identifiable {
         env.append("LANG=\(ProcessInfo.processInfo.environment["LANG"] ?? "en_US.UTF-8")")
         if let path = ProcessInfo.processInfo.environment["PATH"] { env.append("PATH=\(path)") }
         view.startProcess(executable: program, args: args, environment: env,
-                          currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path)
+                          currentDirectory: cwd ?? FileManager.default.homeDirectoryForCurrentUser.path)
+        // Typed into the user's own shell, exactly as if they'd typed it —
+        // visible, editable history, and Ctrl+C stops it.
+        if let input { view.send(data: ArraySlice(Array((input + "\r").utf8))) }
     }
 
     /// PTY children lead their own process group: signal the whole group so
@@ -76,6 +80,31 @@ final class TerminalManager {
               let cmd = try? TerminalCommand.resolve(formula: formula, kind: kind, brewPrefix: brewPrefix) else { return }
         var created: TerminalSession?
         let session = TerminalSession(formula: formula, title: title, kind: kind, program: cmd.program, args: cmd.args) { [weak self] in
+            if let id = created?.id { self?.exited.insert(id) }
+        }
+        created = session
+        sessions.append(session)
+        activeID = session.id
+        drawerOpen = true
+    }
+
+    /// Opens a login shell in `dir` (inside the home folder) and runs a
+    /// validated dev-script command there. Re-focuses an existing tab for it.
+    func runInProject(dir: String, title: String, command: String) {
+        let key = "script:\(dir):\(command)"
+        if let existing = sessions.first(where: { $0.formula == key }), !exited.contains(existing.id) {
+            activeID = existing.id
+            drawerOpen = true
+            return
+        }
+        let home = Paths.home.path
+        guard dir.hasPrefix(home + "/"), FileManager.default.fileExists(atPath: dir),
+              sessions.count < Self.maxSessions else { return }
+        sessions.removeAll { $0.formula == key && exited.contains($0.id) }
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        var created: TerminalSession?
+        let session = TerminalSession(formula: key, title: title, kind: .script, program: shell, args: ["-l"],
+                                      cwd: dir, input: command.isEmpty ? nil : command) { [weak self] in
             if let id = created?.id { self?.exited.insert(id) }
         }
         created = session

@@ -20,12 +20,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var autoArchiveEnabled = false
     public var autoArchiveCutoffDays = 30
     public var autoVacuumEnabled = false
+    /// Notify when the startup disk drops under 10 GB free.
+    public var lowDiskWarning = true
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case theme, layout, pollIntervalMs, quitBehavior, cardOrder, enabledModules
-        case autoArchiveEnabled, autoArchiveCutoffDays, autoVacuumEnabled
+        case autoArchiveEnabled, autoArchiveCutoffDays, autoVacuumEnabled, lowDiskWarning
     }
 
     /// Lenient: the file is user-editable, so every field falls back to its default.
@@ -41,6 +43,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         autoArchiveEnabled = (try? c.decode(Bool.self, forKey: .autoArchiveEnabled)) ?? d.autoArchiveEnabled
         autoArchiveCutoffDays = (try? c.decode(Int.self, forKey: .autoArchiveCutoffDays)) ?? d.autoArchiveCutoffDays
         autoVacuumEnabled = (try? c.decode(Bool.self, forKey: .autoVacuumEnabled)) ?? d.autoVacuumEnabled
+        lowDiskWarning = (try? c.decode(Bool.self, forKey: .lowDiskWarning)) ?? d.lowDiskWarning
     }
 
     /// Unknown ids dropped; an empty result is corruption → nil (fail open, never a dead app).

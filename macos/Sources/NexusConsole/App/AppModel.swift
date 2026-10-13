@@ -4,16 +4,19 @@ import Observation
 import UserNotifications
 
 enum Tab: String, CaseIterable, Identifiable {
-    case services, packages, sessions, ports, doctor, archiver, settings
+    case projects, services, packages, sessions, ports, doctor, cleanup, docker, archiver, settings
     var id: String { rawValue }
 
     var label: String {
         switch self {
+        case .projects: "Projects"
         case .services: "Services"
         case .packages: "Packages"
         case .sessions: "Sessions"
         case .ports: "Ports"
         case .doctor: "Doctor"
+        case .cleanup: "Dev cleanup"
+        case .docker: "Docker"
         case .archiver: "Claude Chats"
         case .settings: "Settings"
         }
@@ -21,24 +24,27 @@ enum Tab: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .projects: "square.stack.3d.down.right"
         case .services: "square.grid.2x2"
         case .packages: "shippingbox"
         case .sessions: "clock"
         case .ports: "network"
         case .doctor: "stethoscope"
+        case .cleanup: "folder.badge.minus"
+        case .docker: "cube.box"
         case .archiver: "archivebox"
         case .settings: "gearshape"
         }
     }
 
-    /// The module that owns this tab; nil = always visible (Settings).
+    /// The module that owns this tab; nil = always visible (Projects, Settings).
     var module: ModuleID? {
         switch self {
         case .services, .packages, .sessions: .homebrew
         case .ports: .ports
-        case .doctor: .doctor
+        case .doctor, .cleanup, .docker: .doctor
         case .archiver: .claude
-        case .settings: nil
+        case .projects, .settings: nil
         }
     }
 }
@@ -63,7 +69,7 @@ final class AppModel {
     var tab: Tab = .services
     var toasts: [Toast] = []
     /// In-flight brew work, shown by the activity bar ("Installing redis…").
-    var activities: [(id: UUID, label: String)] = []
+    var activities: [(id: UUID, label: String, brew: Bool)] = []
     /// Bumped by ⌘F; the visible page's search field focuses itself.
     var searchFocusToken = 0
 
@@ -107,7 +113,10 @@ final class AppModel {
     // MARK: - Navigation
 
     var visibleTabs: [Tab] {
-        Tab.allCases.filter { t in t.module.map { settings.isEnabled($0) && $0.isAvailable } ?? true }
+        Tab.allCases.filter { t in
+            (t.module.map { settings.isEnabled($0) && $0.isAvailable } ?? true)
+                && (t != .docker || DockerCleaner.isInstalled)
+        }
     }
 
     var needsOnboarding: Bool { settings.enabledModules == nil }
@@ -131,9 +140,9 @@ final class AppModel {
 
     /// Brew is slow and silent — label the work so the activity bar can show it.
     @discardableResult
-    func track<T>(_ label: String, _ body: () async throws -> T) async rethrows -> T {
+    func track<T>(brew: Bool = false, _ label: String, _ body: () async throws -> T) async rethrows -> T {
         let id = UUID()
-        activities.append((id, label))
+        activities.append((id, label, brew))
         defer { activities.removeAll { $0.id == id } }
         return try await body()
     }
@@ -204,7 +213,7 @@ final class AppModel {
         pending[s.formula] = .starting
         perform {
             defer { self.pending[s.formula] = nil }
-            try await self.track("Starting \(s.displayName)") {
+            try await self.track(brew: true, "Starting \(s.displayName)") {
                 try await self.services.start(s.formula, linked: s.linkState == .linked)
             }
             await self.refreshServices()
@@ -216,7 +225,7 @@ final class AppModel {
         pending[s.formula] = .stopping
         perform {
             defer { self.pending[s.formula] = nil }
-            do { try await self.track("Stopping \(s.displayName)") { try await self.services.stop(s.formula) } } catch {
+            do { try await self.track(brew: true, "Stopping \(s.displayName)") { try await self.services.stop(s.formula) } } catch {
                 self.userStops.remove(s.formula)
                 throw error
             }
@@ -228,7 +237,7 @@ final class AppModel {
         pending[s.formula] = .starting
         perform {
             defer { self.pending[s.formula] = nil }
-            try await self.track("Restarting \(s.displayName)") {
+            try await self.track(brew: true, "Restarting \(s.displayName)") {
                 try await self.services.restart(s.formula, linked: s.linkState == .linked)
             }
             await self.refreshServices()
@@ -286,7 +295,7 @@ final class AppModel {
     private func runBulk(_ verb: String, _ list: [ReconciledService],
                          _ op: (ReconciledService) async throws -> Void) async {
         var failed = 0
-        await track("\(verb == "Stopped" ? "Stopping" : "Starting") \(list.count) service\(list.count == 1 ? "" : "s")") {
+        await track(brew: true, "\(verb == "Stopped" ? "Stopping" : "Starting") \(list.count) service\(list.count == 1 ? "" : "s")") {
             for s in list {
                 do { try await op(s) } catch { failed += 1 }
             }
@@ -323,7 +332,7 @@ final class AppModel {
         pending[s.formula] = .starting
         perform("Installed \(s.displayName)") {
             defer { self.pending[s.formula] = nil }
-            let installed = try await self.track("Installing \(s.formula)") { try await self.services.install(s.formula) }
+            let installed = try await self.track(brew: true, "Installing \(s.formula)") { try await self.services.install(s.formula) }
             self.renameManaged(from: s.formula, to: installed)
             await self.refreshServices()
         }
@@ -335,7 +344,7 @@ final class AppModel {
         perform("Switched to \(version)") {
             defer { self.pending[s.formula] = nil }
             if s.status == .running || s.status == .starting { try? await self.services.stop(s.formula) }
-            let installed = try await self.track("Installing \(version)") { try await self.services.install(version) }
+            let installed = try await self.track(brew: true, "Installing \(version)") { try await self.services.install(version) }
             self.renameManaged(from: s.formula, to: installed)
             await self.refreshServices()
         }
@@ -343,7 +352,7 @@ final class AppModel {
 
     func trustTap(_ tap: String) {
         perform("Trusted \(tap)") {
-            try await self.track("Trusting \(tap)") { try await self.services.trustTap(tap, confirmer: self.confirmer) }
+            try await self.track(brew: true, "Trusting \(tap)") { try await self.services.trustTap(tap, confirmer: self.confirmer) }
             await self.refreshServices()
         }
     }

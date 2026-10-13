@@ -1,7 +1,7 @@
 import NexusCore
 import SwiftUI
 
-/// Kill confirm: Kill (SIGTERM) or Force (SIGKILL). A permission-denied kill
+/// Stop confirm: Stop (SIGTERM) or Force (SIGKILL). A permission-denied kill
 /// switches the sheet to "Kill with admin…", which escalates through the
 /// native administrator prompt.
 struct PortKillSheet: View {
@@ -17,7 +17,7 @@ struct PortKillSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Kill \(target.command)?").font(.headline).lineLimit(2)
+                Text("Stop \(target.command)?").font(.headline).lineLimit(2)
                 Text("PID \(String(target.pid)) · port :\(String(target.port)) · \(target.user)")
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -26,7 +26,7 @@ struct PortKillSheet: View {
             if systemOwned || needsAdmin {
                 Label {
                     Text(needsAdmin
-                        ? "Permission denied — this process needs administrator privileges to kill."
+                        ? "Permission denied — this process needs administrator privileges to stop."
                         : "System-owned process. Killing it may destabilize macOS.")
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -38,7 +38,7 @@ struct PortKillSheet: View {
                 .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
             }
 
-            Text("Stop the process listening on port :\(String(target.port)).")
+            Text(detail)
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -52,7 +52,7 @@ struct PortKillSheet: View {
                 } else {
                     Button("Force") { kill(force: true, sudo: false) }
                         .help("Send SIGKILL — the process can't clean up")
-                    Button("Kill", role: .destructive) { kill(force: false, sudo: false) }
+                    Button("Stop", role: .destructive) { kill(force: false, sudo: false) }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
                         .help("Send SIGTERM")
@@ -63,6 +63,13 @@ struct PortKillSheet: View {
         }
         .padding(20)
         .frame(width: 420)
+    }
+
+    /// Names the project and dev server so it's clear what goes away.
+    private var detail: String {
+        var what = target.framework.map { "\(target.command) (\($0))" } ?? target.command
+        if case let .project(root) = target.owner { what += " in \((root as NSString).lastPathComponent)" }
+        return "Stops \(what), which is listening on port :\(String(target.port))."
     }
 
     private func kill(force: Bool, sudo: Bool) {

@@ -219,7 +219,8 @@ struct ThemeToggle: View {
     }
 }
 
-/// Floating "Installing redis… Homebrew can take a minute." while brew works.
+/// Floating "Installing redis… Homebrew can take a minute." while slow work runs
+/// (the Homebrew hint only for brew work).
 /// Overlays the page (bottom-left; toasts own bottom-right) so nothing shifts.
 struct ActivityBar: View {
     @Environment(AppModel.self) private var model
@@ -230,7 +231,9 @@ struct ActivityBar: View {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
                 Text(first.label + (more > 0 ? " +\(more) more" : "") + "…").font(.callout.weight(.medium))
-                Text("Homebrew can take a minute.").font(.callout).foregroundStyle(.secondary)
+                if first.brew {
+                    Text("Homebrew can take a minute.").font(.callout).foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)

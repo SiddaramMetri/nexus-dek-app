@@ -1,6 +1,10 @@
 import Foundation
 
-public enum TerminalKind: String, Sendable { case cli, logs }
+public enum TerminalKind: String, Sendable {
+    case cli, logs
+    /// A login shell in a project folder that runs one of its dev scripts.
+    case script
+}
 
 /// Server-side allowlist: the UI passes a formula + kind, never a program.
 /// Resolves the service's client binary (or a login shell), or `tail -f` on its log.

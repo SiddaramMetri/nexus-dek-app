@@ -13,6 +13,7 @@ enum Scheduler {
     static func start(model: AppModel) {
         Task { @MainActor [weak model] in
             var lastArchive: Date?
+            var diskWarningArmed = true
             while let model {
                 let s = model.settings
                 if s.autoArchiveEnabled, s.isEnabled(.claude),
@@ -26,6 +27,11 @@ enum Scheduler {
                 if s.autoVacuumEnabled, s.isEnabled(.doctor), !(await VSCodeDoctor.stateDBsInUse()),
                    let msg = try? await VSCodeDoctor.vacuumBloated(), msg.hasPrefix("Freed") {
                     Notifier.post(title: "Nexus Console", body: msg)
+                }
+                if s.lowDiskWarning, let disk = DiskSpace.current(),
+                   DiskSpace.shouldWarn(free: disk.free, armed: &diskWarningArmed) {
+                    Notifier.post(title: "Your Mac is low on space",
+                                  body: "Only \(Format.bytes(disk.free)) free. Dev cleanup in Nexus Console can find space you don't need.")
                 }
                 try? await Task.sleep(for: tick)
             }

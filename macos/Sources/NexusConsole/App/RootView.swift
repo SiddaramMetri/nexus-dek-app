@@ -86,11 +86,14 @@ struct MainView: View {
     @ViewBuilder
     private func page(for tab: Tab) -> some View {
         switch tab {
+        case .projects: ProjectsPage()
         case .services: ServicesPage()
         case .packages: PackagesPage()
         case .sessions: SessionsPage()
         case .ports: PortsPage()
         case .doctor: DoctorPage()
+        case .cleanup: CleanupPage()
+        case .docker: DockerPage()
         case .archiver: ArchiverPage()
         case .settings: SettingsPage()
         }

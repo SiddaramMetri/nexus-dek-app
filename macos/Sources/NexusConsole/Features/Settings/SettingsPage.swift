@@ -61,6 +61,9 @@ struct SettingsPage: View {
                 }
                 .labelsHidden().frame(width: 150)
             }
+            row("Low disk warning", "Notify when your Mac has under 10 GB free.") {
+                Toggle("Low disk warning", isOn: $model.settings.lowDiskWarning).toggleStyle(.switch).labelsHidden()
+            }
             row("Refresh every", "How often Homebrew is polled while Nexus runs.") {
                 Picker("Refresh", selection: Binding(get: { model.settings.pollIntervalMs },
                                                      set: { model.settings.pollIntervalMs = $0; model.settingsChanged() })) {
@@ -88,7 +91,7 @@ struct SettingsPage: View {
                         updating = true
                         model.perform("Homebrew updated") {
                             defer { updating = false }
-                            try await model.track("Updating Homebrew") { try await model.brew.mutate(["update"]) }
+                            try await model.track(brew: true, "Updating Homebrew") { try await model.brew.mutate(["update"]) }
                         }
                     } label: {
                         if updating { ProgressView().controlSize(.small) } else { Label("Update Homebrew", systemImage: "arrow.clockwise") }

@@ -2,7 +2,7 @@ import AppKit
 import NexusCore
 import SwiftUI
 
-/// Listening ports (or every TCP connection) with their owning processes.
+/// Ports grouped by what they belong to: your projects, apps, macOS, other.
 /// Polls on the user's interval only while the tab is shown and the window is
 /// visible; refetches when the app is reactivated.
 struct PortsPage: View {
@@ -15,14 +15,14 @@ struct PortsPage: View {
 
     var body: some View {
         @Bindable var store = store
-        let all = store.rows ?? []
-        let filtered = Ports.filter(all, query: query)
+        let all = store.snapshot.map { PortSections.build($0, brewServices: brewPids) }
+        let shown = store.snapshot.map { PortSections.build($0, brewServices: brewPids, query: query) }
 
         VStack(spacing: 0) {
-            PageHeader(title: "Ports", subtitle: subtitle(total: all.count, shown: filtered.count)) {
+            PageHeader(title: "Ports", subtitle: subtitle(all: all, shown: shown)) {
                 HStack(spacing: 8) {
-                    SearchField(prompt: "Port, pid, or process…", text: $query)
-                        .frame(width: 210)
+                    SearchField(prompt: "Port, process, project or app…", text: $query)
+                        .frame(width: 230)
                     Picker("Scope", selection: $store.listeningOnly) {
                         Text("Listening").tag(true)
                         Text("All").tag(false)
@@ -36,11 +36,8 @@ struct PortsPage: View {
             .padding(.bottom, 8)
             Divider()
 
-            content(filtered)
+            content(shown)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .card(padding: 0)
-                .padding(24)
         }
         .task(id: store.listeningOnly) { await poll() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -49,57 +46,134 @@ struct PortsPage: View {
         .sheet(item: $killTarget) { PortKillSheet(target: $0) }
     }
 
+    /// pid → formula for running Homebrew services.
+    private var brewPids: [Int32: String] {
+        Dictionary(model.brewServices.compactMap { s in s.pid.map { ($0, s.name) } }, uniquingKeysWith: { a, _ in a })
+    }
+
     private func poll() async {
         while !Task.isCancelled {
             // Skip the lsof/ps shell-outs while the window is hidden to the tray.
-            if NSApp.occlusionState.contains(.visible) { await store.reload() }
+            // The first load never waits: right after launch macOS hasn't reported the window visible yet.
+            if store.snapshot == nil || NSApp.occlusionState.contains(.visible) { await store.reload() }
             try? await Task.sleep(for: .milliseconds(max(1000, model.settings.pollIntervalMs)))
         }
     }
 
-    private func subtitle(total: Int, shown: Int) -> String {
-        if store.rows == nil { return "Ports & processes" }
-        if !query.isEmpty { return "\(shown) of \(total) shown" }
-        return "\(total) \(store.listeningOnly ? "listening" : "active") port\(total == 1 ? "" : "s")"
+    /// "13 listening ports · 2 projects · 3 apps", or "3 of 13 shown" while searching.
+    private func subtitle(all: PortSections?, shown: PortSections?) -> String {
+        guard let all, let shown else { return "Ports & processes" }
+        if !query.trimmingCharacters(in: .whitespaces).isEmpty { return "\(shown.portCount) of \(all.portCount) shown" }
+        var parts = ["\(all.portCount) \(store.listeningOnly ? "listening" : "active") \(plural(all.portCount, "port"))"]
+        if !all.projects.isEmpty { parts.append("\(all.projects.count) \(plural(all.projects.count, "project"))") }
+        if !all.apps.isEmpty { parts.append("\(all.apps.count) \(plural(all.apps.count, "app"))") }
+        return parts.joined(separator: " · ")
     }
 
+    private func plural(_ n: Int, _ word: String) -> String { n == 1 ? word : word + "s" }
+
     @ViewBuilder
-    private func content(_ filtered: [PortInfo]) -> some View {
+    private func content(_ sections: PortSections?) -> some View {
         let q = query.trimmingCharacters(in: .whitespaces)
-        if store.rows == nil {
-            PortsSkeleton()
-        } else if filtered.isEmpty {
-            if !q.isEmpty {
-                EmptyState(symbol: "magnifyingglass", title: "No matches", message: "Nothing matches “\(q)”.")
-            } else if store.listeningOnly {
-                EmptyState(symbol: "network", title: "No listening ports",
-                           message: "Nothing is listening right now. Apps that open a port will show up here.")
+        if let sections {
+            if sections.isEmpty {
+                if !q.isEmpty {
+                    EmptyState(symbol: "magnifyingglass", title: "No matches", message: "Nothing matches “\(q)”.")
+                } else if store.listeningOnly {
+                    EmptyState(symbol: "network", title: "No listening ports",
+                               message: "Nothing is listening right now. Dev servers and apps that open a port will show up here.")
+                } else {
+                    EmptyState(symbol: "network", title: "No active ports",
+                               message: "No processes are holding a network connection.")
+                }
             } else {
-                EmptyState(symbol: "network", title: "No active ports",
-                           message: "No processes are holding a network connection.")
+                ScrollView {
+                    PortSectionsView(sections: sections, searching: !q.isEmpty) { killTarget = $0 }
+                        .padding(24)
+                }
             }
         } else {
-            PortsTable(ports: filtered) { killTarget = $0 }
+            PortsSkeleton().padding(24)
         }
     }
 }
 
-/// First-load placeholder rows shaped like the table (no spinner, no jank).
+/// The four sections. While searching every section with a match is shown
+/// expanded, so typing `3000` always reveals what's on 3000.
+private struct PortSectionsView: View {
+    let sections: PortSections
+    let searching: Bool
+    let onStop: (PortInfo) -> Void
+
+    private var store: PortsStore { .shared }
+
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: 12) {
+            if !sections.projects.isEmpty || !searching {
+                header(.projects, count: sections.projects.count)
+                if isOpen(.projects) {
+                    if sections.projects.isEmpty {
+                        Text("No dev servers are running in your projects.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 18)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 480), spacing: 16, alignment: .top)], spacing: 16) {
+                        ForEach(sections.projects) { ProjectCard(group: $0, onStop: onStop) }
+                    }
+                }
+            }
+            if !sections.apps.isEmpty {
+                header(.apps, count: sections.apps.count).padding(.top, 8)
+                if isOpen(.apps) { AppPortsList(groups: sections.apps) }
+            }
+            if !sections.other.isEmpty {
+                header(.other, count: sections.other.count).padding(.top, 8)
+                if isOpen(.other) { OtherPortsList(groups: sections.other, onStop: onStop) }
+            }
+            if !sections.system.isEmpty {
+                header(.system, count: sections.system.count, trailing: "Protected").padding(.top, 8)
+                if isOpen(.system) { SystemPortsList(groups: sections.system) }
+            }
+        }
+    }
+
+    private func isOpen(_ s: PortsStore.Section) -> Bool { searching || store.expanded.contains(s) }
+
+    private func header(_ s: PortsStore.Section, count: Int, trailing: String? = nil) -> some View {
+        PortSectionHeader(title: s.title, count: count, expanded: isOpen(s), trailing: trailing) {
+            withAnimation(.snappy(duration: 0.2)) { store.toggle(s) }
+        }
+        .disabled(searching)
+    }
+}
+
+/// First-load placeholder shaped like a project card (no spinner, no jank).
 private struct PortsSkeleton: View {
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(0..<8, id: \.self) { _ in
+        VStack(alignment: .leading, spacing: 12) {
+            bar(height: 16).frame(width: 140)
+            VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    bar(height: 28).frame(maxWidth: .infinity)
-                    bar(height: 14).frame(width: 56)
-                    bar(height: 14).frame(width: 48)
-                    bar(height: 14).frame(width: 40)
-                    bar(height: 28).frame(width: 32)
+                    bar(height: 28).frame(width: 180)
+                    Spacer()
+                    bar(height: 22).frame(width: 110)
+                    bar(height: 22).frame(width: 96)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                Divider()
+                .padding(14)
+                ForEach(0..<4, id: \.self) { _ in
+                    Divider()
+                    HStack(spacing: 12) {
+                        bar(height: 14).frame(width: 52)
+                        bar(height: 28).frame(maxWidth: .infinity)
+                        bar(height: 14).frame(width: 190)
+                        bar(height: 22).frame(width: 120)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                }
             }
+            .card(padding: 0)
             Spacer(minLength: 0)
         }
         .accessibilityHidden(true)

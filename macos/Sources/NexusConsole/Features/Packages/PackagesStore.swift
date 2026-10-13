@@ -92,7 +92,7 @@ final class PackagesStore {
         upgrading.insert(name)
         Task {
             do {
-                try await model.track("Upgrading \(name)") { try await backend.upgrade(name) }
+                try await model.track(brew: true, "Upgrading \(name)") { try await backend.upgrade(name) }
                 model.toast("Upgraded \(name)")
             } catch {
                 model.report(error)
@@ -113,7 +113,7 @@ final class PackagesStore {
             guard ok else { return }
             isUpgradingAll = true
             do {
-                try await model.track("Upgrading \(count) packages") { try await backend.upgradeAll() }
+                try await model.track(brew: true, "Upgrading \(count) packages") { try await backend.upgradeAll() }
                 model.toast("Upgraded all packages")
             } catch {
                 model.report(error)
@@ -130,7 +130,7 @@ final class PackagesStore {
         defer { uninstalling.remove(name) }
         var ok = false
         do {
-            try await model.track("Uninstalling \(name)") {
+            try await model.track(brew: true, "Uninstalling \(name)") {
                 try await model.services.uninstall(name, ignoreDependents: ignoreDependents)
             }
             model.removeManaged(name)
