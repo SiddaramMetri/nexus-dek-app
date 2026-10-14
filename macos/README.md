@@ -16,6 +16,7 @@ no Node or Rust at runtime. It uses Apple frameworks plus one small package,
 cd macos
 ./scripts/build-app.sh          # → build/Kavach Console.app (release, -Osize, stripped, ad-hoc signed)
 ./scripts/build-app.sh --open   # build and launch
+./scripts/build-app.sh --zip    # also build/Kavach-Console.zip, ready for a GitHub release
 ./scripts/test.sh               # KavachCore unit tests (Swift Testing)
 swift build --build-system native   # debug build of the executable
 ```
@@ -43,6 +44,26 @@ Sources/KavachConsole/     the app
 Tests/KavachCoreTests/     Swift Testing suites; Fixtures/ is captured real command output
 Support/Info.plist        bundle metadata (version is taken from ../package.json)
 ```
+
+## Guard (screen lock + keep awake)
+
+Inspired by [Locksee](https://github.com/tejaskh3/Locksee) by tejaskh3. This is our own
+implementation built on public Apple APIs; no Locksee code is used.
+
+- **Lock** (⌃⌘L by default, a Carbon global hotkey, no permission needed). A shield window
+  sits on every display at `CGShieldingWindowLevel`, and a session `CGEventTap` swallows
+  keyboard, media keys and, optionally, trackpad gestures. The cursor still moves, and clicks
+  land on the shield. Unlock is Touch ID, embedded in the shield with `LAAuthenticationView`,
+  or the Mac password, checked through Open Directory. While the password field is open, only
+  plain typing gets through (`LockKeys`); ⌘/⌃ shortcuts and F-keys are always swallowed.
+- **Fails closed.** Without Accessibility the tap can't be installed, so it refuses to lock.
+  It's a hands-off lock for short breaks, not a security boundary (the macOS lock is ⌃⌘Q).
+- **Keep awake** uses IOPM assertions (idle system sleep, plus display sleep if you ask for it).
+  It runs in timed sessions and stops at a low-battery cutoff when on battery. A closed lid
+  still sleeps.
+- **Signing.** Accessibility is tied to the code signature, and every ad-hoc build has a new
+  one, so you have to re-allow it after each rebuild. A self-signed identity named
+  "Kavach Dev", or `KAVACH_SIGN_ID`, keeps the permission (see `scripts/build-app.sh`).
 
 ## Rules carried over from the Tauri app
 

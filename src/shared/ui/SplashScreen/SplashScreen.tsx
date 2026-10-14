@@ -1,5 +1,5 @@
 import { cn } from '@/shared/lib/cn';
-import logo from '@/assets/logo.png';
+import { AppLogo } from '@/shared/ui/AppLogo';
 
 interface SplashScreenProps {
   /** true → fade out over the app content (crossfade exit). */
@@ -18,6 +18,6 @@ export const SplashScreen = ({ leaving = false }: SplashScreenProps) => (
       leaving ? 'opacity-0' : 'opacity-100',
     )}
   >
-    <img src={logo} alt="" draggable={false} className="nx-splash-logo size-24" />
+    <AppLogo className="nx-splash-logo size-24" />
   </div>
 );

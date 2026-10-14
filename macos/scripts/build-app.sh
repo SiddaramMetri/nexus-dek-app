@@ -2,7 +2,15 @@
 # Build the release app (named in Support/app.env) into macos/build/.
 #   ./scripts/build-app.sh            # release, size-optimized, ad-hoc signed
 #   ./scripts/build-app.sh --open     # …and launch it
+#   ./scripts/build-app.sh --zip      # …and make build/Kavach-Console.zip for a GitHub release
 # Needs only the Command Line Tools (no Xcode).
+#
+# Signing: ad-hoc by default. macOS ties the Accessibility permission (Guard's
+# screen lock) to the signature, and every ad-hoc build has a new one, so the
+# permission has to be re-allowed after each rebuild. To keep it, create a
+# self-signed code-signing certificate once (Keychain Access ▸ Certificate
+# Assistant ▸ Create a Certificate…, type "Code Signing") named "Kavach Dev",
+# or point KAVACH_SIGN_ID at any code-signing identity you own.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -47,10 +55,30 @@ done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
-echo "▸ Signing (ad-hoc)…"
-codesign --force --sign - --options runtime "$APP" >/dev/null
+SIGN_ID="${KAVACH_SIGN_ID:-}"
+if [ -z "$SIGN_ID" ] && security find-identity -p codesigning 2>/dev/null | grep -q '"Kavach Dev"'; then
+  SIGN_ID="Kavach Dev"
+fi
+if [ -n "$SIGN_ID" ]; then
+  echo "▸ Signing ($SIGN_ID)…"
+  codesign --force --sign "$SIGN_ID" --options runtime "$APP" >/dev/null
+else
+  echo "▸ Signing (ad-hoc — re-allow Accessibility after this build if you use the Guard lock)…"
+  codesign --force --sign - --options runtime "$APP" >/dev/null
+fi
 
 SIZE="$(du -sh "$APP" | cut -f1)"
 echo "✔ $APP  ($SIZE)"
-[ "${1:-}" = "--open" ] && open "$APP"
+for arg in "$@"; do
+  case "$arg" in
+    --zip)
+      ZIP="$OUT/${APP_NAME// /-}.zip"
+      rm -f "$ZIP"
+      # ditto keeps the bundle's symlinks, permissions and signature intact (zip -r doesn't).
+      ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+      echo "✔ $ZIP  ($(du -h "$ZIP" | cut -f1))"
+      ;;
+    --open) open "$APP" ;;
+  esac
+done
 exit 0

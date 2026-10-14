@@ -100,6 +100,7 @@ struct MainView: View {
         case .cleanup: CleanupPage()
         case .docker: DockerPage()
         case .archiver: ArchiverPage()
+        case .guardian: GuardPage()
         case .settings: SettingsPage()
         }
     }

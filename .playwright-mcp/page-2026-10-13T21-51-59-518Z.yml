@@ -1,0 +1,6 @@
+- generic [ref=e2]:
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e4]:
+        - button "Close toast" [ref=e5] [cursor=pointer]
+        - generic [ref=e12]: Cannot read properties of undefined (reading 'invoke')

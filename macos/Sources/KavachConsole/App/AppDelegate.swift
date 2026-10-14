@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.confirmer.window = window
         statusBar = StatusBar(model: model, showWindow: { [weak self] in self?.showWindow() })
         model.onTrayChange = { [weak self] in self?.statusBar.refresh() }
+        model.guardian.onChange = { [weak self] in self?.statusBar.refresh() }
+        model.guardian.onLockRefused = { [weak self] in
+            self?.model.tab = .guardian
+            self?.showWindow()
+        }
         model.start()
         DistributedNotificationCenter.default().addObserver(
             forName: showNotification, object: nil, queue: .main

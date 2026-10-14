@@ -1,9 +1,9 @@
-import { Boxes } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useAppDispatch, useAppSelector } from '@/shared/state/hooks';
 import { setActiveTab } from '@/shared/state/uiSlice';
 import { useModuleEnabled, useVisibleNav } from '@/shared/modules';
 import { cn } from '@/shared/lib/cn';
+import { AppLogo } from '@/shared/ui/AppLogo';
 import { ServicesBadge } from './ServicesBadge';
 
 export const Sidebar = () => {
@@ -21,9 +21,7 @@ export const Sidebar = () => {
           work normally, only this element's own background + non-interactive
           children become drag handles. */}
       <div data-tauri-drag-region="deep" className="flex items-center gap-3 px-2 pt-8">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
-          <Boxes className="h-5 w-5" />
-        </div>
+        <AppLogo className="size-10" />
         <div>
           <p className="text-sm font-semibold text-fg">Kavach Console</p>
           <p className="text-xs text-fg-muted">Service Manager</p>

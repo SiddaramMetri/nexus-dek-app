@@ -10,6 +10,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     private let showWindow: () -> Void
 
     private let diskItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let awakeStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     /// What the "Dev servers" section last showed — rebuild only on change.
     private var serversSignature = ""
     private var serversTask: Task<Void, Never>?
@@ -18,9 +19,6 @@ final class StatusBar: NSObject, NSMenuDelegate {
         self.model = model
         self.showWindow = showWindow
         super.init()
-        let image = NSImage(systemSymbolName: "shield.lefthalf.filled", accessibilityDescription: "\(AppInfo.name)")
-        image?.isTemplate = true
-        item.button?.image = image
         item.button?.imagePosition = .imageLeading
         refresh()
         watchServers()
@@ -131,8 +129,76 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
     }
 
+    // MARK: - Guard
+
+    /// Shield normally; a steaming cup while keep-awake is on.
+    private func updateIcon() {
+        let awake = model.guardian.isAwake
+        let image = NSImage(systemSymbolName: awake ? "cup.and.heat.waves.fill" : "shield.lefthalf.filled",
+                            accessibilityDescription: awake ? "\(AppInfo.name) — keeping your Mac awake" : AppInfo.name)
+        image?.isTemplate = true
+        item.button?.image = image
+    }
+
+    private func addGuard(to menu: NSMenu) {
+        let g = model.guardian
+        let lock = NSMenuItem(title: "Lock Screen", action: #selector(lockScreen), keyEquivalent: "")
+        lock.target = self
+        lock.image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: nil)
+        if g.settings.lockShortcut != .off {
+            // Display only — the real shortcut is the global hotkey.
+            lock.keyEquivalent = "l"
+            var mask: NSEvent.ModifierFlags = []
+            let m = g.settings.lockShortcut.carbonModifiers
+            if m & 0x100 != 0 { mask.insert(.command) }
+            if m & 0x200 != 0 { mask.insert(.shift) }
+            if m & 0x800 != 0 { mask.insert(.option) }
+            if m & 0x1000 != 0 { mask.insert(.control) }
+            lock.keyEquivalentModifierMask = mask
+        }
+        menu.addItem(lock)
+
+        let awake = NSMenuItem(title: g.isAwake ? "Keep Awake: On" : "Keep Awake", action: nil, keyEquivalent: "")
+        awake.image = NSImage(systemSymbolName: "cup.and.heat.waves", accessibilityDescription: nil)
+        let sub = NSMenu()
+        if g.isAwake {
+            awakeStatusItem.isEnabled = false
+            updateAwakeStatus()
+            awakeStatusItem.menu?.removeItem(awakeStatusItem)
+            sub.addItem(awakeStatusItem)
+            sub.addItem(action("Turn Off", #selector(stopAwake), 0))
+            sub.addItem(.separator())
+        }
+        for minutes in KeepAwakePolicy.durations {
+            let title = minutes == 0 ? "Until I Turn It Off" : "For \(KeepAwakePolicy.label(minutes: minutes))"
+            sub.addItem(action(title, #selector(startAwake(_:)), minutes))
+        }
+        sub.addItem(.separator())
+        let display = action("Keep Display On", #selector(toggleDisplay), 0)
+        display.state = g.settings.keepDisplayOn ? .on : .off
+        sub.addItem(display)
+        awake.submenu = sub
+        menu.addItem(awake)
+        menu.addItem(.separator())
+    }
+
+    private func updateAwakeStatus() {
+        awakeStatusItem.title = model.guardian.awakeStatus ?? ""
+    }
+
+    @objc private func lockScreen() { model.guardian.lock() }
+    @objc private func stopAwake() { model.guardian.stopAwake() }
+    @objc private func toggleDisplay() { model.guardian.settings.keepDisplayOn.toggle() }
+
+    @objc private func startAwake(_ sender: NSMenuItem) {
+        guard let minutes = sender.representedObject as? Int else { return }
+        model.guardian.settings.awakeMinutes = minutes
+        model.guardian.startAwake(minutes: minutes)
+    }
+
     func refresh() {
         item.button?.title = model.trayTitle.isEmpty ? "" : " \(model.trayTitle)"
+        updateIcon()
         let menu = NSMenu()
         menu.delegate = self
         diskItem.isEnabled = false
@@ -146,6 +212,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
             menu.addItem(clean)
         }
         menu.addItem(.separator())
+        addGuard(to: menu)
         if model.settings.isEnabled(.ports) { addDevServers(to: menu) }
         if model.settings.isEnabled(.homebrew) {
             menu.addItem(disabled("Active Services"))
@@ -185,6 +252,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     /// background so the next open is current too.
     func menuWillOpen(_ menu: NSMenu) {
         updateDisk()
+        updateAwakeStatus()
         Task {
             await PortsStore.shared.reload()
             let sig = devServers.map { "\($0.project):\($0.port.port):\($0.port.pid)" }.joined(separator: "|")

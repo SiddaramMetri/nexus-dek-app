@@ -4,7 +4,7 @@ import Observation
 import UserNotifications
 
 enum Tab: String, CaseIterable, Identifiable {
-    case projects, services, packages, tools, sessions, ports, doctor, cleanup, docker, archiver, settings
+    case projects, services, packages, tools, sessions, ports, doctor, cleanup, docker, archiver, guardian, settings
     var id: String { rawValue }
 
     var label: String {
@@ -19,6 +19,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .cleanup: "Dev cleanup"
         case .docker: "Docker"
         case .archiver: "Claude Chats"
+        case .guardian: "Guard"
         case .settings: "Settings"
         }
     }
@@ -35,6 +36,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .cleanup: "folder.badge.minus"
         case .docker: "cube.box"
         case .archiver: "archivebox"
+        case .guardian: "lock.shield"
         case .settings: "gearshape"
         }
     }
@@ -46,7 +48,7 @@ enum Tab: String, CaseIterable, Identifiable {
         case .ports: .ports
         case .doctor, .cleanup, .docker: .doctor
         case .archiver: .claude
-        case .projects, .tools, .settings: nil
+        case .projects, .tools, .guardian, .settings: nil
         }
     }
 }
@@ -66,6 +68,7 @@ final class AppModel {
     let services: ServicesBackend
     let confirmer = AlertConfirmer()
     let terminals: TerminalManager
+    let guardian = GuardModel()
     var brewVersion: String?
 
     var tab: Tab = .services
@@ -109,6 +112,8 @@ final class AppModel {
     func start() {
         Task { brewVersion = await brew.version() }
         Scheduler.start(model: self)
+        guardian.notify = { [weak self] in self?.toast($0, isError: true) }
+        guardian.start()
         restartPolling()
     }
 
